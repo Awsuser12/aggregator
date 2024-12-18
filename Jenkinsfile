@@ -41,6 +41,7 @@ pipeline {
                     // Update kubeconfig for EKS cluster
                     sh '''
                     aws eks --region ${AWS_DEFAULT_REGION} update-kubeconfig --name ${CLUSTER_NAME}
+                    cp /var/jenkins_home/deployment.yaml ${WORKSPACE}/deployment.yaml
                     kubectl apply -f ${WORKSPACE}/deployment.yaml
                     '''
                 }
