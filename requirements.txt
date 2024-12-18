@@ -1,0 +1,4 @@
+boto3==1.28.24
+psycopg2-binary==2.9.6
+python-crontab==2.7.1
+requests==2.31.0
