@@ -1,50 +1,60 @@
 pipeline {
-    agent {
-        docker {
-            image 'python:3.11-slim'  // Use Python 3.11 Docker image
-        }
-    }
+    agent any
 
     environment {
-        APP_DIR = "/app"  // Application directory
+        AWS_ACCESS_KEY_ID = 'AKIAUZPNLVFPGWGVS7G3'
+        AWS_SECRET_ACCESS_KEY = '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'
+        AWS_DEFAULT_REGION = 'eu-north-1'
+        ECR_REPO = '329599658334.dkr.ecr.eu-north-1.amazonaws.com/my-app'
+        CLUSTER_NAME = 'my-eks-cluster'
+        IMAGE_TAG = 'latestone'
     }
 
     stages {
-        stage('Checkout') {
+        stage('Build Docker Image') {
             steps {
-                echo "Cloning the project from GitHub..."
-                git branch: 'main', url: 'https://github.com/your-username/your-repo.git'
+                echo "Building Docker image..."
+                script {
+                    // Build the Docker image
+                    sh 'docker build -t ${ECR_REPO}:${IMAGE_TAG} .'
+                }
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Push to ECR') {
             steps {
-                echo "Installing dependencies..."
-                sh 'pip install --no-cache-dir -r requirements.txt'
+                echo "Pushing Docker image to AWS ECR..."
+                script {
+                    // Log in to Amazon ECR
+                    sh '''
+                    aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_REPO}
+                    docker push ${ECR_REPO}:${IMAGE_TAG}
+                    '''
+                }
             }
         }
 
-        stage('Run Application') {
+        stage('Deploy to EKS') {
             steps {
-                echo "Running the Python application..."
-                sh 'python app.py &'
+                echo "Deploying to EKS..."
+                script {
+                    // Update kubeconfig for EKS cluster
+                    sh '''
+                    aws eks --region ${AWS_DEFAULT_REGION} update-kubeconfig --name ${CLUSTER_NAME}
+                    kubectl apply -f ${WORKSPACE}/deployment.yaml
+                    '''
+                }
             }
         }
 
-        stage('Verify Application') {
+        stage('Verify Deployment') {
             steps {
-                echo "Verifying the application..."
-                sh 'curl http://localhost:5000'
+                echo "Verifying deployment..."
+                script {
+                    // Check if the pods are running
+                    sh 'kubectl get pods'
+                }
             }
-        }
-    }
-
-    post {
-        success {
-            echo "Pipeline executed successfully!"
-        }
-        failure {
-            echo "Pipeline failed. Please check the logs."
         }
     }
 }
